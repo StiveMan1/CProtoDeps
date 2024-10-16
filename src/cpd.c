@@ -142,13 +142,22 @@ uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t
     return _pos;
 }
 
-#define CDP_MARSHAL_HEADER \
-if (ctx == NULL) return -1; \
-cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m)); \
+#define CDP_CONTEXT_NEW(type, ctx, obj) \
+type *obj = calloc(1, sizeof(type)); \
 if (obj != NULL) ctx->last = obj; \
-else return -1; \
+else
+
+#define CDP_CONTEXT_APPEND(ctx, obj) \
 if (ctx->first == NULL) ctx->first = obj; \
 else ctx->last->next = obj;
+
+#define CDP_MARSHAL_HEADER \
+if (ctx == NULL) return -1; \
+CDP_CONTEXT_NEW(cpd_obj_m, ctx, obj) return -1; \
+CDP_CONTEXT_APPEND(ctx, obj) \
+uint8_t _str[16] = {0}; \
+uint8_t _type; \
+uint64_t _size;
 
 #define CDP_UNMARSHAL_HEADER \
 if (ctx == NULL) return -1; \
@@ -164,9 +173,7 @@ if (obj->_content == NULL)
 int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     CDP_MARSHAL_HEADER
 
-    uint8_t _type;
-    uint8_t _str[16] = {0};
-    const uint64_t _size = cpd_basic_marshal(val, _str, &_type);
+    _size = cpd_basic_marshal(val, _str, &_type);
     CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_int, _size) return -1;
     ctx->size += _size + 1;
 
@@ -176,10 +183,7 @@ int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
 int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t size) {
     CDP_MARSHAL_HEADER
 
-    uint8_t _str[16] = {0};
-    uint8_t _type;
-    const uint64_t _size = cpd_basic_marshal(size, _str, &_type);
-
+    _size = cpd_basic_marshal(size, _str, &_type);
     CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_string, size + _size) return -1;
     ctx->size += size + _size + 1;
 
@@ -190,17 +194,13 @@ int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t si
 int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
     CDP_MARSHAL_HEADER
 
-    uint8_t _str[16] = {0};
-    uint8_t _type;
-    uint64_t _size;
-
     cpd_ctx_marshal *_ctx = calloc(1, sizeof(cpd_ctx_marshal));
     if (_ctx == NULL) return -1;
+
     int32_t res = func(_obj, _ctx);
     if (res != 0) goto end;
 
     _size = cpd_basic_marshal(_ctx->size, _str, &_type);
-
     CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_compose, _ctx->size + _size) {
         res = -1;
         goto end;
@@ -243,26 +243,22 @@ int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size
     memcpy(str, obj->_content, *res_size);
     return 0;
 }
-int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, const cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
+int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
     CDP_UNMARSHAL_HEADER
 
     if ((obj->_type & 0x0c) != cpd_type_compose) return -1;
     if (obj->_content == NULL) return -1;
-
 
     cpd_ctx_unmarshal *_ctx = calloc(1, sizeof(cpd_ctx_unmarshal));
     if (_ctx == NULL) return -1;
 
     int32_t res = 0;
     for (uint64_t pos = 0; pos < obj->_size;) {
-        cpd_obj_u *ctx_obj = calloc(1, sizeof(cpd_obj_u));
-        if (_ctx->first == NULL) _ctx->first = ctx_obj;
-        else _ctx->last->next = ctx_obj;
-        if (ctx_obj != NULL) _ctx->last = ctx_obj;
-        else {
+        CDP_CONTEXT_NEW(cpd_obj_u, _ctx, ctx_obj) {
             res = -1;
             goto end;
         }
+        CDP_CONTEXT_APPEND(_ctx, ctx_obj)
 
         ctx_obj->_type = obj->_content[pos++];
         pos += cpd_basic_unmarshal(obj->_content + pos, ctx_obj->_type, &ctx_obj->_size);
