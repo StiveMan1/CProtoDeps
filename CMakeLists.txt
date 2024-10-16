@@ -5,6 +5,7 @@ set(CMAKE_C_STANDARD 11)
 
 include_directories(src)
 
-add_executable(CProtoDeps
+add_executable(CProtoDeps main.c
     src/cpd.c
-    src/cpd.h)
+    src/cpd.h
+        main.c)

@@ -18,6 +18,10 @@ typedef void *(cpd_obj_new)(void *);
 typedef int32_t(*cpd_marshal_func)(void *, cpd_ctx_marshal *);
 typedef int32_t(*cpd_unmarshal_func)(void *, cpd_ctx_unmarshal *);
 
+
+cpd_ctx_marshal *cpd_marshal_new();
+cpd_ctx_unmarshal *cpd_unmarshal_new();
+
 int32_t cpd_marshal_double(cpd_ctx_marshal *ctx, double _double);
 int32_t cpd_marshal_float (cpd_ctx_marshal *ctx, float  _float );
 
@@ -49,5 +53,7 @@ int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, uint64_t size, uint
 
 int32_t cpd_marshal(void *_obj, cpd_marshal_func func, cpd_ctx_marshal *ctx);
 int32_t cpd_unmarshal(void **_obj, void *_data, cpd_unmarshal_func func, cpd_obj_new func_new, cpd_ctx_unmarshal *ctx);
+
+
 
 #endif //CPD_H

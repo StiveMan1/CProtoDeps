@@ -28,48 +28,54 @@ typedef enum {
 } cpd_types;
 
 typedef struct tree_node_st {
-    uint64_t obj;
-    uint64_t pos;
-    struct tree_node_st *childs[2];
-    char color;
+    uint64_t obj;                           // Object identifier
+    uint64_t pos;                           // Position in the tree
+    struct tree_node_st *childs[2];         // Position in the tree
+    char color;                             // Position in the tree
 } tree_node_t;
 typedef struct {
-    tree_node_t *root;
-    uint64_t count;
+    tree_node_t *root;                      // Root node of the tree
+    uint64_t count;                         // Number of nodes in the tree
 } tree_t;
 
 typedef struct cpd_obj_m_st {
-    uint8_t _type;
+    uint8_t _type;                          // Type of the marshaled object
 
-    uint8_t *_content;
-    uint64_t _size;
+    uint8_t *_content;                      // Pointer to the created string
+    uint64_t _size;                         // Size of the content
 
-    struct cpd_obj_m_st *next;
+    struct cpd_obj_m_st *next;              // Pointer to the next object in the list
 } cpd_obj_m;
 typedef struct cpd_obj_u_st {
-    uint8_t _type;
+    uint8_t _type;                          // Type of the unmarshaled object
 
-    const uint8_t *_content;
-    uint64_t _size;
+    const uint8_t *_content;                // Pointer to the content of the object
+    uint64_t _size;                         // Size of the content (may contains uint64_t representation of value)
 
-    struct cpd_obj_u_st *next;
+    struct cpd_obj_u_st *next;              // Pointer to the next object in the list
 } cpd_obj_u;
 
 struct cpd_ctx_unmarshal_st {
-    cpd_obj_u *first;
-    cpd_obj_u *last;
+    cpd_obj_u *first;                       // Pointer to the first object in the unmarshal context
+    cpd_obj_u *last;                        // Pointer to the last object in the unmarshal context
 
-    tree_t *tree;
+    tree_t tree;                            // Pointer to the tree used during unmarshaling
 };
 typedef struct cpd_ctx_marshal_st {
-    cpd_obj_m *first;
-    cpd_obj_m *last;
+    cpd_obj_m *first;                       // Pointer to the first object in the marshal context
+    cpd_obj_m *last;                        // Pointer to the last object in the marshal context
 
-    uint64_t size;
-    tree_t *tree;
+    uint64_t size;                          // Total size of marshaled data
+    tree_t tree;                            // Pointer to the tree used during marshaling
 } cpd_ctx_marshal;
 
-
+// Creation of the contexts for CPD Lib
+cpd_ctx_marshal *cpd_marshal_new() {
+    return calloc(1, sizeof(cpd_ctx_marshal));
+}
+cpd_ctx_unmarshal *cpd_unmarshal_new() {
+    return calloc(1, sizeof(cpd_ctx_unmarshal));
+}
 
 uint64_t cpd_varint_marshal(uint64_t _val, uint8_t *_str) {
     uint64_t _size = 0;
@@ -297,7 +303,7 @@ int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t si
 int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
     CDP_MARSHAL_HEADER
 
-    const uint64_t src_pos = tree_find_pos(ctx->tree, (uint64_t) _obj);
+    const uint64_t src_pos = tree_find_pos(&ctx->tree, (uint64_t) _obj);
     if (src_pos) {
         _size = cpd_basic_marshal(src_pos, _str, &_type);
         CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_link, _size) return CPD_FLAG_ERR_ALLOC;
@@ -306,7 +312,7 @@ int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ct
         memcpy(obj->_content, _str, _size);
         return CPD_FLAG_SUCCESS;
     }
-    if (_obj != NULL) tree_insert_by_obj(ctx->tree, (uint64_t) _obj, ++ctx->tree->count);
+    if (_obj != NULL) tree_insert_by_obj(&ctx->tree, (uint64_t) _obj, ++ctx->tree.count);
 
     cpd_ctx_marshal *_ctx = calloc(1, sizeof(cpd_ctx_marshal));
     if (_ctx == NULL) return CPD_FLAG_ERR_ALLOC;
@@ -363,14 +369,14 @@ int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, c
 
     if ((obj->_type & 0x0c) != cpd_type_compose) {
         if ((obj->_type & 0x0c) != cpd_type_link) return CPD_FLAG_ERR_TYPE;
-        if (_obj != NULL) *_obj = (void *) tree_find_obj(ctx->tree, obj->_size);
+        if (_obj != NULL) *_obj = (void *) tree_find_obj(&ctx->tree, obj->_size);
         return CPD_FLAG_SUCCESS;
     }
     if (obj->_content == NULL) return CPD_FLAG_ERR_NULLPTR;
     if (_obj != NULL) {
         if (func_new != NULL) *_obj = func_new(_data);
         else *_obj = NULL;
-        tree_insert_by_pos(ctx->tree, (uint64_t) *_obj, ++ctx->tree->count);
+        tree_insert_by_pos(&ctx->tree, (uint64_t) *_obj, ++ctx->tree.count);
     }
 
     cpd_ctx_unmarshal *_ctx = calloc(1, sizeof(cpd_ctx_unmarshal));
