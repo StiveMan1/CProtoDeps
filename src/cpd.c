@@ -145,9 +145,11 @@ uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t
 
 int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     if (ctx == NULL) return -1;
-    if (ctx->first == NULL) return -1;
-    cpd_obj_m *obj = ctx->first;
-    ctx->first = ctx->first->next;
+    cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
+    if (ctx->first == NULL) ctx->first = obj;
+    else ctx->last->next = obj;
+    if (obj != NULL) ctx->last = obj;
+    else return -1;
 
     uint8_t _type;
     uint8_t _str[16] = {0};
