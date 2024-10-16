@@ -146,10 +146,10 @@ uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t
 int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     if (ctx == NULL) return -1;
     cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
-    if (ctx->first == NULL) ctx->first = obj;
-    else ctx->last->next = obj;
     if (obj != NULL) ctx->last = obj;
     else return -1;
+    if (ctx->first == NULL) ctx->first = obj;
+    else ctx->last->next = obj;
 
     uint8_t _type;
     uint8_t _str[16] = {0};
@@ -159,6 +159,26 @@ int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     ctx->size += _size + 1;
 
     memcpy(obj->_content, _str, _size);
+    return 0;
+}
+int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t size) {
+    if (ctx == NULL) return -1;
+    cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
+    if (obj != NULL) ctx->last = obj;
+    else return -1;
+    if (ctx->first == NULL) ctx->first = obj;
+    else ctx->last->next = obj;
+
+    uint8_t _str[16] = {0};
+    uint8_t _type;
+    const uint64_t _size = cpd_basic_marshal(size, _str, &_type);
+
+    *obj = (cpd_obj_m){_type | cpd_type_string, malloc(size + _size), size + _size};
+    if (obj->_content == NULL) return -1;
+    ctx->size += size + _size + 1;
+
+    memcpy(obj->_content, _str, _size);
+    memcpy(obj->_content + _size, str, size);
     return 0;
 }
 
@@ -172,5 +192,18 @@ int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
 
     *val = obj->_size;
 
+    return 0;
+}
+int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size, uint64_t *res_size) {
+    if (ctx == NULL) return -1;
+    if (ctx->first == NULL) return -1;
+    const cpd_obj_u *obj = ctx->first;
+    ctx->first = ctx->first->next;
+
+    if ((obj->_type & 0x0c) != cpd_type_string) return -1;
+    if (obj->_content == NULL) return -1;
+
+    *res_size = size < obj->_size? size: obj->_size;
+    memcpy(str, obj->_content, *res_size);
     return 0;
 }
