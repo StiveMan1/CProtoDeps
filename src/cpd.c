@@ -151,26 +151,9 @@ uint64_t tree_find_obj(const tree_t *tree, const uint64_t pos) {
     }
     return 0;
 }
-void tree_insert_by_pos(tree_t *tree, const uint64_t _obj, const uint64_t _pos) {
-    tree_node_t *node = tree->root;
-    int side = 0, pos = -1;
-
-    while (node) {
-        if (_pos == node->pos) return;
-        tree_parents[++pos] = node;
-        side = tree_sides[pos] = node->pos < _pos;
-        node = node->childs[side];
-    }
-
-    tree_node_t *new_node = calloc(1, sizeof(tree_node_t));
-    new_node->pos = _pos;
-    new_node->obj = _obj;
-    new_node->color = RED;
-    if (pos == -1) tree->root = new_node;
-    else tree_parents[pos]->childs[side] = new_node;
-
+void tree_optimize(tree_t *tree, int pos) {
     while (--pos >= 0) {
-        side = tree_sides[pos];
+        int side = tree_sides[pos];
         tree_node_t *g_ = tree_parents[pos]; // Grand Parent
         tree_node_t *y_ = g_->childs[1 - side]; // Unlce
         tree_node_t *x_ = tree_parents[pos + 1]; // Parent
@@ -203,6 +186,26 @@ void tree_insert_by_pos(tree_t *tree, const uint64_t _obj, const uint64_t _pos) 
 
     tree->root->color = BLACK;
 }
+void tree_insert_by_pos(tree_t *tree, const uint64_t _obj, const uint64_t _pos) {
+    tree_node_t *node = tree->root;
+    int side = 0, pos = -1;
+
+    while (node) {
+        if (_pos == node->pos) return;
+        tree_parents[++pos] = node;
+        side = tree_sides[pos] = node->pos < _pos;
+        node = node->childs[side];
+    }
+
+    tree_node_t *new_node = calloc(1, sizeof(tree_node_t));
+    new_node->pos = _pos;
+    new_node->obj = _obj;
+    new_node->color = RED;
+    if (pos == -1) tree->root = new_node;
+    else tree_parents[pos]->childs[side] = new_node;
+
+    tree_optimize(tree, pos);
+}
 void tree_insert_by_obj(tree_t *tree, const uint64_t _obj, const uint64_t _pos) {
     tree_node_t *node = tree->root;
     int side = 0, pos = -1;
@@ -221,39 +224,7 @@ void tree_insert_by_obj(tree_t *tree, const uint64_t _obj, const uint64_t _pos) 
     if (pos == -1) tree->root = new_node;
     else tree_parents[pos]->childs[side] = new_node;
 
-    while (--pos >= 0) {
-        side = tree_sides[pos];
-        tree_node_t *g_ = tree_parents[pos]; // Grand Parent
-        tree_node_t *y_ = g_->childs[1 - side]; // Unlce
-        tree_node_t *x_ = tree_parents[pos + 1]; // Parent
-
-        if (x_->color == BLACK) break;
-        if (y_ && y_->color == RED) {
-            x_->color = BLACK;
-            y_->color = BLACK;
-            g_->color = RED;
-
-            --pos;
-            continue;
-        }
-
-        if (side == 1 - tree_sides[pos + 1]) {
-            y_ = x_->childs[1 - side]; // y_ is child
-            x_->childs[1 - side] = y_->childs[side];
-            y_->childs[side] = x_;
-            x_ = g_->childs[side] = y_;
-        }
-        g_->color = RED;
-        x_->color = BLACK;
-        g_->childs[side] = x_->childs[1 - side];
-        x_->childs[1 - side] = g_;
-
-        if (pos == 0) tree->root = x_;
-        else tree_parents[pos - 1]->childs[tree_sides[pos - 1]] = x_;
-        break;
-    }
-
-    tree->root->color = BLACK;
+    tree_optimize(tree, pos);
 }
 void neurons_tree_free(tree_t *tree) {
     tree_node_t *next = tree->root;
