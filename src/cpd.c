@@ -152,16 +152,16 @@ if (ctx->first == NULL) ctx->first = obj; \
 else ctx->last->next = obj;
 
 #define CDP_MARSHAL_HEADER \
-if (ctx == NULL) return -1; \
-CDP_CONTEXT_NEW(cpd_obj_m, ctx, obj) return -1; \
+if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR; \
+CDP_CONTEXT_NEW(cpd_obj_m, ctx, obj) return SRPC_FLAG_ERR_ALLOC; \
 CDP_CONTEXT_APPEND(ctx, obj) \
 uint8_t _str[16] = {0}; \
 uint8_t _type; \
 uint64_t _size;
 
 #define CDP_UNMARSHAL_HEADER \
-if (ctx == NULL) return -1; \
-if (ctx->first == NULL) return -1; \
+if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR; \
+if (ctx->first == NULL) return CPD_FLAG_ERR_NULLPTR; \
 const cpd_obj_u *obj = ctx->first; \
 ctx->first = ctx->first->next; \
 
@@ -174,35 +174,35 @@ int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     CDP_MARSHAL_HEADER
 
     _size = cpd_basic_marshal(val, _str, &_type);
-    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_int, _size) return -1;
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_int, _size) return SRPC_FLAG_ERR_ALLOC;
     ctx->size += _size + 1;
 
     memcpy(obj->_content, _str, _size);
-    return 0;
+    return SRPC_FLAG_SUCCESS;
 }
 int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t size) {
     CDP_MARSHAL_HEADER
 
     _size = cpd_basic_marshal(size, _str, &_type);
-    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_string, size + _size) return -1;
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_string, size + _size) return SRPC_FLAG_ERR_ALLOC;
     ctx->size += size + _size + 1;
 
     memcpy(obj->_content, _str, _size);
     memcpy(obj->_content + _size, str, size);
-    return 0;
+    return SRPC_FLAG_SUCCESS;
 }
 int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
     CDP_MARSHAL_HEADER
 
     cpd_ctx_marshal *_ctx = calloc(1, sizeof(cpd_ctx_marshal));
-    if (_ctx == NULL) return -1;
+    if (_ctx == NULL) return SRPC_FLAG_ERR_ALLOC;
 
     int32_t res = func(_obj, _ctx);
     if (res != 0) goto end;
 
     _size = cpd_basic_marshal(_ctx->size, _str, &_type);
     CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_compose, _ctx->size + _size) {
-        res = -1;
+        res = SRPC_FLAG_ERR_ALLOC;
         goto end;
     }
     ctx->size += _ctx->size + _size;
@@ -227,35 +227,35 @@ int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ct
 
 int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
     CDP_UNMARSHAL_HEADER
-    if ((obj->_type & 0x0c) != cpd_type_int) return -1;
+    if ((obj->_type & 0x0c) != cpd_type_int) return SRPC_FLAG_ERR_TYPE;
 
     *val = obj->_size;
 
-    return 0;
+    return SRPC_FLAG_SUCCESS;
 }
 int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size, uint64_t *res_size) {
     CDP_UNMARSHAL_HEADER
 
-    if ((obj->_type & 0x0c) != cpd_type_string) return -1;
-    if (obj->_content == NULL) return -1;
+    if ((obj->_type & 0x0c) != cpd_type_string) return SRPC_FLAG_ERR_TYPE;
+    if (obj->_content == NULL) return CPD_FLAG_ERR_NULLPTR;
 
     *res_size = size < obj->_size? size: obj->_size;
     memcpy(str, obj->_content, *res_size);
-    return 0;
+    return SRPC_FLAG_SUCCESS;
 }
 int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
     CDP_UNMARSHAL_HEADER
 
-    if ((obj->_type & 0x0c) != cpd_type_compose) return -1;
-    if (obj->_content == NULL) return -1;
+    if ((obj->_type & 0x0c) != cpd_type_compose) return SRPC_FLAG_ERR_TYPE;
+    if (obj->_content == NULL) return CPD_FLAG_ERR_NULLPTR;
 
     cpd_ctx_unmarshal *_ctx = calloc(1, sizeof(cpd_ctx_unmarshal));
-    if (_ctx == NULL) return -1;
+    if (_ctx == NULL) return SRPC_FLAG_ERR_ALLOC;
 
-    int32_t res = 0;
+    int32_t res = SRPC_FLAG_SUCCESS;
     for (uint64_t pos = 0; pos < obj->_size;) {
         CDP_CONTEXT_NEW(cpd_obj_u, _ctx, ctx_obj) {
-            res = -1;
+            res = SRPC_FLAG_ERR_ALLOC;
             goto end;
         }
         CDP_CONTEXT_APPEND(_ctx, ctx_obj)
@@ -267,7 +267,7 @@ int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, c
             pos += ctx_obj->_size;
         }
         if (pos > obj->_size) {
-            res = -1;
+            res = CPD_SRPC_FLAG_ERR_EOF;
             goto end;
         }
     }
