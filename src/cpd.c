@@ -181,6 +181,48 @@ int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t si
     memcpy(obj->_content + _size, str, size);
     return 0;
 }
+int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
+    if (ctx == ((void *) 0)) return -1;
+    cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
+    if (obj != ((void *) 0)) ctx->last = obj;
+    else return -1;
+    if (ctx->first == ((void *) 0)) ctx->first = obj;
+    else ctx->last->next = obj;
+
+    uint8_t _str[16] = {0};
+    uint8_t _type;
+    uint64_t _size;
+
+    cpd_ctx_marshal *_ctx = calloc(1, sizeof(cpd_ctx_marshal));
+    if (_ctx == NULL) return -1;
+    int32_t res = func(_obj, _ctx);
+    if (res != 0) goto end;
+
+    _size = cpd_basic_marshal(_ctx->size, _str, &_type);
+
+    *obj = (cpd_obj_m){_type | cpd_type_compose, malloc(_ctx->size + _size), _ctx->size + _size};
+    if (obj->_content == ((void *) 0)) {
+        res = -1;
+        goto end;
+    }
+    ctx->size += _ctx->size + _size;
+
+    memcpy(obj->_content, _str, _size);
+    for (const cpd_obj_m *elm = _ctx->first; elm != NULL; elm = elm->next) {
+        obj->_content[_size++] = elm->_type;
+        memcpy(obj->_content + _size, elm->_content, elm->_size);
+        _size += elm->_size;
+    }
+
+    end:
+    for (cpd_obj_m *elm = _ctx->first, *next; elm != NULL; elm = next) {
+        next = elm->next;
+        if (elm->_content != NULL) free(elm->_content);
+        free(elm);
+    }
+    free(_ctx);
+    return res;
+}
 
 
 int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
@@ -206,4 +248,48 @@ int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size
     *res_size = size < obj->_size? size: obj->_size;
     memcpy(str, obj->_content, *res_size);
     return 0;
+}
+int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, const cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
+    if (ctx == ((void *) 0)) return -1;
+    if (ctx->first == ((void *) 0)) return -1;
+    const cpd_obj_u *obj = ctx->first;
+    ctx->first = ctx->first->next;
+    if ((obj->_type & 0x0c) != cpd_type_compose) return -1;
+    if (obj->_content == NULL) return -1;
+
+
+    cpd_ctx_unmarshal *_ctx = calloc(1, sizeof(cpd_ctx_unmarshal));
+    if (_ctx == NULL) return -1;
+
+    int32_t res = 0;
+    for (uint64_t pos = 0; pos < obj->_size;) {
+        cpd_obj_u *ctx_obj = calloc(1, sizeof(cpd_obj_u));
+        if (_ctx->first == ((void *) 0)) _ctx->first = ctx_obj;
+        else _ctx->last->next = ctx_obj;
+        if (ctx_obj != ((void *) 0)) _ctx->last = ctx_obj;
+        else {
+            res = -1;
+            goto end;
+        }
+
+        ctx_obj->_type = obj->_content[pos++];
+        pos += cpd_basic_unmarshal(obj->_content + pos, ctx_obj->_type, &ctx_obj->_size);
+        if ((ctx_obj->_type & cpd_type_val) == cpd_type_len) {
+            ctx_obj->_content = obj->_content + pos;
+            pos += ctx_obj->_size;
+        }
+        if (pos > obj->_size) {
+            res = -1;
+            goto end;
+        }
+    }
+
+    res = func(_obj, _ctx);
+    end:
+    for (cpd_obj_u *elm = _ctx->first, *next; elm != NULL; elm = next) {
+        next = elm->next;
+        free(elm);
+    }
+    free(_ctx);
+    return res;
 }
