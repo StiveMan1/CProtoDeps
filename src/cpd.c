@@ -142,14 +142,22 @@ uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t
     return _pos;
 }
 
+#define CDP_MARSHAL_HEADER \
+if (ctx == NULL) return -1; \
+cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m)); \
+if (obj != NULL) ctx->last = obj; \
+else return -1; \
+if (ctx->first == NULL) ctx->first = obj; \
+else ctx->last->next = obj;
+
+#define CDP_UNMARSHAL_HEADER \
+if (ctx == NULL) return -1; \
+if (ctx->first == NULL) return -1; \
+const cpd_obj_u *obj = ctx->first; \
+ctx->first = ctx->first->next; \
 
 int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
-    if (ctx == NULL) return -1;
-    cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
-    if (obj != NULL) ctx->last = obj;
-    else return -1;
-    if (ctx->first == NULL) ctx->first = obj;
-    else ctx->last->next = obj;
+    CDP_MARSHAL_HEADER
 
     uint8_t _type;
     uint8_t _str[16] = {0};
@@ -162,12 +170,7 @@ int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     return 0;
 }
 int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t size) {
-    if (ctx == NULL) return -1;
-    cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
-    if (obj != NULL) ctx->last = obj;
-    else return -1;
-    if (ctx->first == NULL) ctx->first = obj;
-    else ctx->last->next = obj;
+    CDP_MARSHAL_HEADER
 
     uint8_t _str[16] = {0};
     uint8_t _type;
@@ -182,12 +185,7 @@ int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t si
     return 0;
 }
 int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
-    if (ctx == ((void *) 0)) return -1;
-    cpd_obj_m *obj = calloc(1, sizeof(cpd_obj_m));
-    if (obj != ((void *) 0)) ctx->last = obj;
-    else return -1;
-    if (ctx->first == ((void *) 0)) ctx->first = obj;
-    else ctx->last->next = obj;
+    CDP_MARSHAL_HEADER
 
     uint8_t _str[16] = {0};
     uint8_t _type;
@@ -201,7 +199,7 @@ int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ct
     _size = cpd_basic_marshal(_ctx->size, _str, &_type);
 
     *obj = (cpd_obj_m){_type | cpd_type_compose, malloc(_ctx->size + _size), _ctx->size + _size};
-    if (obj->_content == ((void *) 0)) {
+    if (obj->_content == NULL) {
         res = -1;
         goto end;
     }
@@ -226,10 +224,7 @@ int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ct
 
 
 int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
-    if (ctx == NULL) return -1;
-    if (ctx->first == NULL) return -1;
-    const cpd_obj_u *obj = ctx->first;
-    ctx->first = ctx->first->next;
+    CDP_UNMARSHAL_HEADER
     if ((obj->_type & 0x0c) != cpd_type_int) return -1;
 
     *val = obj->_size;
@@ -237,10 +232,7 @@ int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
     return 0;
 }
 int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size, uint64_t *res_size) {
-    if (ctx == NULL) return -1;
-    if (ctx->first == NULL) return -1;
-    const cpd_obj_u *obj = ctx->first;
-    ctx->first = ctx->first->next;
+    CDP_UNMARSHAL_HEADER
 
     if ((obj->_type & 0x0c) != cpd_type_string) return -1;
     if (obj->_content == NULL) return -1;
@@ -250,10 +242,8 @@ int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size
     return 0;
 }
 int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, const cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
-    if (ctx == ((void *) 0)) return -1;
-    if (ctx->first == ((void *) 0)) return -1;
-    const cpd_obj_u *obj = ctx->first;
-    ctx->first = ctx->first->next;
+    CDP_UNMARSHAL_HEADER
+
     if ((obj->_type & 0x0c) != cpd_type_compose) return -1;
     if (obj->_content == NULL) return -1;
 
@@ -264,9 +254,9 @@ int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, c
     int32_t res = 0;
     for (uint64_t pos = 0; pos < obj->_size;) {
         cpd_obj_u *ctx_obj = calloc(1, sizeof(cpd_obj_u));
-        if (_ctx->first == ((void *) 0)) _ctx->first = ctx_obj;
+        if (_ctx->first == NULL) _ctx->first = ctx_obj;
         else _ctx->last->next = ctx_obj;
-        if (ctx_obj != ((void *) 0)) _ctx->last = ctx_obj;
+        if (ctx_obj != NULL) _ctx->last = ctx_obj;
         else {
             res = -1;
             goto end;
