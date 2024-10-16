@@ -155,7 +155,6 @@ void tree_insert_by_pos(tree_t *tree, const uint64_t _obj, const uint64_t _pos) 
     tree_node_t *node = tree->root;
     int side = 0, pos = -1;
 
-    // Find Position To be places
     while (node) {
         if (_pos == node->pos) return;
         tree_parents[++pos] = node;
@@ -208,7 +207,6 @@ void tree_insert_by_obj(tree_t *tree, const uint64_t _obj, const uint64_t _pos) 
     tree_node_t *node = tree->root;
     int side = 0, pos = -1;
 
-    // Find Position To be places
     while (node) {
         if (_pos == node->pos) return;
         tree_parents[++pos] = node;
@@ -258,52 +256,49 @@ void tree_insert_by_obj(tree_t *tree, const uint64_t _obj, const uint64_t _pos) 
     tree->root->color = BLACK;
 }
 void neurons_tree_free(tree_t *tree) {
-    tree_node_t *next = tree->root, *node;
+    tree_node_t *next = tree->root;
     int pos = -1;
 
-    // printf("data : ");
     while (1) {
         while (next) {
             tree_parents[++pos] = next;
             next = next->childs[0];
         }
         if (pos == -1) break;
-        node = tree_parents[pos--];
+        tree_node_t *node = tree_parents[pos--];
         next = node->childs[1];
 
-        // printf("%zx (%zx) ", node->data->id, node->data->connect[0]->id);
         free(node);
     }
-    // printf("\n");
 
     tree->root = NULL;
 }
 
 #define CDP_CONTEXT_NEW(type, ctx, obj) \
-type *obj = calloc(1, sizeof(type)); \
-if (obj != NULL) ctx->last = obj; \
+type *obj = calloc(1, sizeof(type));    \
+if (obj != NULL) ctx->last = obj;       \
 else
 
-#define CDP_CONTEXT_APPEND(ctx, obj) \
-if (ctx->first == NULL) ctx->first = obj; \
+#define CDP_CONTEXT_APPEND(ctx, obj)        \
+if (ctx->first == NULL) ctx->first = obj;   \
 else ctx->last->next = obj;
 
-#define CDP_MARSHAL_HEADER \
-if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR; \
+#define CDP_MARSHAL_HEADER                                      \
+if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR;                   \
 CDP_CONTEXT_NEW(cpd_obj_m, ctx, obj) return CPD_FLAG_ERR_ALLOC; \
-CDP_CONTEXT_APPEND(ctx, obj) \
-uint8_t _str[16] = {0}; \
+CDP_CONTEXT_APPEND(ctx, obj)                                    \
+uint8_t _str[16] = {0};                                         \
 uint8_t _type; \
 uint64_t _size;
 
-#define CDP_UNMARSHAL_HEADER \
-if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR; \
-if (ctx->first == NULL) return CPD_FLAG_ERR_NULLPTR; \
-const cpd_obj_u *obj = ctx->first; \
-ctx->first = ctx->first->next; \
+#define CDP_UNMARSHAL_HEADER                            \
+if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR;           \
+if (ctx->first == NULL) return CPD_FLAG_ERR_NULLPTR;    \
+const cpd_obj_u *obj = ctx->first;                      \
+ctx->first = ctx->first->next;                          \
 
-#define CDP_MARSHAL_OBJECT_INIT(type, size) \
-*obj = (cpd_obj_m){type, malloc(size), size}; \
+#define CDP_MARSHAL_OBJECT_INIT(type, size)     \
+*obj = (cpd_obj_m){type, malloc(size), size};   \
 if (obj->_content == NULL)
 
 
@@ -442,13 +437,13 @@ int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, c
 }
 
 #define CPD_CONSTRUCT(a, b) a##b
-#define CPD_MARSHAL_CONSTRUCT(type, name) \
-int32_t CPD_CONSTRUCT(cpd_marshal, name)(cpd_ctx_marshal *ctx, const type name) { \
-    return cpd_basic_data_marshal(ctx, (uint64_t) name); \
+#define CPD_MARSHAL_CONSTRUCT(type, name)                                           \
+int32_t CPD_CONSTRUCT(cpd_marshal, name)(cpd_ctx_marshal *ctx, const type name) {   \
+    return cpd_basic_data_marshal(ctx, (uint64_t) name);                            \
 }
-#define CPD_UNMARSHAL_CONSTRUCT(type, name) \
-int32_t CPD_CONSTRUCT(cpd_unmarshal, name)(cpd_ctx_unmarshal *ctx, type *name) { \
-    return cpd_basic_data_unmarshal(ctx, (uint64_t *) name); \
+#define CPD_UNMARSHAL_CONSTRUCT(type, name)                                         \
+int32_t CPD_CONSTRUCT(cpd_unmarshal, name)(cpd_ctx_unmarshal *ctx, type *name) {    \
+    return cpd_basic_data_unmarshal(ctx, (uint64_t *) name);                        \
 }
 
 CPD_MARSHAL_CONSTRUCT(double, _double)

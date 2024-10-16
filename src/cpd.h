@@ -5,11 +5,11 @@
 
 #define CPD_VERSION "0.0.1"
 
-#define CPD_FLAG_ERR_NULLPTR   0x01
-#define CPD_FLAG_ERR_ALLOC     0x02
-#define CPD_FLAG_ERR_TYPE      0x03
-#define CPD_FLAG_ERR_EOF       0x04
-#define CPD_FLAG_SUCCESS       0x00
+#define CPD_FLAG_ERR_NULLPTR    0x01
+#define CPD_FLAG_ERR_ALLOC      0x02
+#define CPD_FLAG_ERR_TYPE       0x03
+#define CPD_FLAG_ERR_EOF        0x04
+#define CPD_FLAG_SUCCESS        0x00
 
 typedef struct cpd_ctx_marshal_st cpd_ctx_marshal;
 typedef struct cpd_ctx_unmarshal_st cpd_ctx_unmarshal;
