@@ -67,10 +67,6 @@ typedef struct cpd_ctx_marshal_st {
 } cpd_ctx_marshal;
 
 
-typedef void *(cpd_obj_new)(void *);
-typedef int32_t(*cpd_marshal_func)(void *, cpd_ctx_marshal *);
-typedef int32_t(*cpd_unmarshal_func)(void *, cpd_ctx_unmarshal *);
-
 
 uint64_t cpd_varint_marshal(uint64_t _val, uint8_t *_str) {
     uint64_t _size = 0;
