@@ -79,3 +79,61 @@ typedef void *(cpd_obj_new)(void *);
 typedef int32_t(*cpd_marshal_func)(void *, cpd_ctx_marshal *);
 typedef int32_t(*cpd_unmarshal_func)(void *, cpd_ctx_unmarshal *);
 
+
+uint64_t cpd_varint_marshal(uint64_t _val, uint8_t *_str) {
+    uint64_t _size = 0;
+    for (; _val > 0x7F; _val >>= 7) _str[_size++] = _val & 0x7F | 0x80;
+    _str[_size++] = _val;
+    return _size;
+}
+uint64_t cpd_basic_marshal(const uint64_t _val, uint8_t *_str, uint8_t *_type) {
+    uint64_t _size = 0;
+    for (uint64_t val = _val; val; val >>= 8) _size++;
+
+    if (_size <= 4) {
+        _size = cpd_varint_marshal(_val, _str);
+        if (_size < 4) goto end_p;
+        _size = cpd_varint_marshal(-(uint32_t) _val, _str);
+        if (_size < 4) goto end_n;
+        *_type = cpd_basic_int32;
+    } else {
+        _size = cpd_varint_marshal(_val, _str);
+        if (_size < 8) goto end_p;
+        _size = cpd_varint_marshal(-_val, _str);
+        if (_size < 8) goto end_n;
+        *_type = cpd_basic_int64;
+    }
+    _size = 0;
+    for (uint64_t val = _val; val; val >>= 8) _str[_size++] = val & 0xFF;
+    return _size;
+
+    end_p:
+    *_type = cpd_basic_var_pos;
+    return _size;
+
+    end_n:
+    *_type = cpd_basic_var_neg;
+    return _size;
+}
+uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t *val) {
+    uint64_t _val = 0;
+    int64_t _neg = 1;
+    uint64_t _pos = 0;
+    switch (_type & cpd_basic_var_neg) {
+        case cpd_basic_int64:
+            for (uint64_t i = 0; i < 4; ++i, ++_pos) _val |= ((uint64_t) _str[_pos]) << (_pos * 8);
+        case cpd_basic_int32:
+            for (uint64_t i = 0; i < 4; ++i, ++_pos) _val |= ((uint64_t) _str[_pos]) << (_pos * 8);
+        break;
+        case cpd_basic_var_neg:
+            _neg = -1;
+        case cpd_basic_var_pos:
+            for (;_str[_pos] & 0x80; ++_pos) _val |= ((uint64_t) _str[_pos] & 0x7F) << (_pos * 7);
+            _val |= ((uint64_t) _str[_pos] & 0x7F) << (_pos * 7);
+            ++_pos;
+        break;
+        default:;
+    }
+    *val = _val * _neg;
+    return _pos;
+}
