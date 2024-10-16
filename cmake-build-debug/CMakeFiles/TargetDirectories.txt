@@ -1,3 +1,0 @@
-/home/stve/CLionProjects/CProtoDeps/cmake-build-debug/CMakeFiles/CProtoDeps.dir
-/home/stve/CLionProjects/CProtoDeps/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/stve/CLionProjects/CProtoDeps/cmake-build-debug/CMakeFiles/rebuild_cache.dir
