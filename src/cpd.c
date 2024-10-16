@@ -4,6 +4,9 @@
 
 #include "cpd.h"
 
+#define BLACK   0
+#define RED     1
+
 typedef enum {
     cpd_basic_int = 0x00,
     cpd_basic_var = 0x02,
@@ -126,6 +129,156 @@ uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t
     return _pos;
 }
 
+
+uint16_t tree_sides[256];
+tree_node_t *tree_parents[256];
+
+uint64_t tree_find_pos(const tree_t *tree, const uint64_t obj) {
+    const tree_node_t *node = tree->root;
+
+    while (node) {
+        if (obj == node->obj) return node->pos;
+        node = node->childs[node->obj < obj];
+    }
+    return 0;
+}
+uint64_t tree_find_obj(const tree_t *tree, const uint64_t pos) {
+    const tree_node_t *node = tree->root;
+
+    while (node) {
+        if (pos == node->pos) return node->pos;
+        node = node->childs[node->pos < pos];
+    }
+    return 0;
+}
+void tree_insert_by_pos(tree_t *tree, const uint64_t _obj, const uint64_t _pos) {
+    tree_node_t *node = tree->root;
+    int side = 0, pos = -1;
+
+    // Find Position To be places
+    while (node) {
+        if (_pos == node->pos) return;
+        tree_parents[++pos] = node;
+        side = tree_sides[pos] = node->pos < _pos;
+        node = node->childs[side];
+    }
+
+    tree_node_t *new_node = calloc(1, sizeof(tree_node_t));
+    new_node->pos = _pos;
+    new_node->obj = _obj;
+    new_node->color = RED;
+    if (pos == -1) tree->root = new_node;
+    else tree_parents[pos]->childs[side] = new_node;
+
+    while (--pos >= 0) {
+        side = tree_sides[pos];
+        tree_node_t *g_ = tree_parents[pos]; // Grand Parent
+        tree_node_t *y_ = g_->childs[1 - side]; // Unlce
+        tree_node_t *x_ = tree_parents[pos + 1]; // Parent
+
+        if (x_->color == BLACK) break;
+        if (y_ && y_->color == RED) {
+            x_->color = BLACK;
+            y_->color = BLACK;
+            g_->color = RED;
+
+            --pos;
+            continue;
+        }
+
+        if (side == 1 - tree_sides[pos + 1]) {
+            y_ = x_->childs[1 - side]; // y_ is child
+            x_->childs[1 - side] = y_->childs[side];
+            y_->childs[side] = x_;
+            x_ = g_->childs[side] = y_;
+        }
+        g_->color = RED;
+        x_->color = BLACK;
+        g_->childs[side] = x_->childs[1 - side];
+        x_->childs[1 - side] = g_;
+
+        if (pos == 0) tree->root = x_;
+        else tree_parents[pos - 1]->childs[tree_sides[pos - 1]] = x_;
+        break;
+    }
+
+    tree->root->color = BLACK;
+}
+void tree_insert_by_obj(tree_t *tree, const uint64_t _obj, const uint64_t _pos) {
+    tree_node_t *node = tree->root;
+    int side = 0, pos = -1;
+
+    // Find Position To be places
+    while (node) {
+        if (_pos == node->pos) return;
+        tree_parents[++pos] = node;
+        side = tree_sides[pos] = node->pos < _pos;
+        node = node->childs[side];
+    }
+
+    tree_node_t *new_node = calloc(1, sizeof(tree_node_t));
+    new_node->pos = _pos;
+    new_node->obj = _obj;
+    new_node->color = RED;
+    if (pos == -1) tree->root = new_node;
+    else tree_parents[pos]->childs[side] = new_node;
+
+    while (--pos >= 0) {
+        side = tree_sides[pos];
+        tree_node_t *g_ = tree_parents[pos]; // Grand Parent
+        tree_node_t *y_ = g_->childs[1 - side]; // Unlce
+        tree_node_t *x_ = tree_parents[pos + 1]; // Parent
+
+        if (x_->color == BLACK) break;
+        if (y_ && y_->color == RED) {
+            x_->color = BLACK;
+            y_->color = BLACK;
+            g_->color = RED;
+
+            --pos;
+            continue;
+        }
+
+        if (side == 1 - tree_sides[pos + 1]) {
+            y_ = x_->childs[1 - side]; // y_ is child
+            x_->childs[1 - side] = y_->childs[side];
+            y_->childs[side] = x_;
+            x_ = g_->childs[side] = y_;
+        }
+        g_->color = RED;
+        x_->color = BLACK;
+        g_->childs[side] = x_->childs[1 - side];
+        x_->childs[1 - side] = g_;
+
+        if (pos == 0) tree->root = x_;
+        else tree_parents[pos - 1]->childs[tree_sides[pos - 1]] = x_;
+        break;
+    }
+
+    tree->root->color = BLACK;
+}
+void neurons_tree_free(tree_t *tree) {
+    tree_node_t *next = tree->root, *node;
+    int pos = -1;
+
+    // printf("data : ");
+    while (1) {
+        while (next) {
+            tree_parents[++pos] = next;
+            next = next->childs[0];
+        }
+        if (pos == -1) break;
+        node = tree_parents[pos--];
+        next = node->childs[1];
+
+        // printf("%zx (%zx) ", node->data->id, node->data->connect[0]->id);
+        free(node);
+    }
+    // printf("\n");
+
+    tree->root = NULL;
+}
+
 #define CDP_CONTEXT_NEW(type, ctx, obj) \
 type *obj = calloc(1, sizeof(type)); \
 if (obj != NULL) ctx->last = obj; \
@@ -178,8 +331,20 @@ int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t si
 int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
     CDP_MARSHAL_HEADER
 
+    const uint64_t src_pos = tree_find_pos(ctx->tree, (uint64_t) _obj);
+    if (src_pos) {
+        _size = cpd_basic_marshal(src_pos, _str, &_type);
+        CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_link, _size) return CPD_FLAG_ERR_ALLOC;
+        ctx->size += _size + 1;
+
+        memcpy(obj->_content, _str, _size);
+        return CPD_FLAG_SUCCESS;
+    }
+    if (_obj != NULL) tree_insert_by_obj(ctx->tree, (uint64_t) _obj, ++ctx->tree->count);
+
     cpd_ctx_marshal *_ctx = calloc(1, sizeof(cpd_ctx_marshal));
     if (_ctx == NULL) return CPD_FLAG_ERR_ALLOC;
+    _ctx->tree = ctx->tree;
 
     int32_t res = func(_obj, _ctx);
     if (res != 0) goto end;
@@ -230,11 +395,21 @@ int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size
 int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
     CDP_UNMARSHAL_HEADER
 
-    if ((obj->_type & 0x0c) != cpd_type_compose) return CPD_FLAG_ERR_TYPE;
+    if ((obj->_type & 0x0c) != cpd_type_compose) {
+        if ((obj->_type & 0x0c) != cpd_type_link) return CPD_FLAG_ERR_TYPE;
+        if (_obj != NULL) *_obj = (void *) tree_find_obj(ctx->tree, obj->_size);
+        return CPD_FLAG_SUCCESS;
+    }
     if (obj->_content == NULL) return CPD_FLAG_ERR_NULLPTR;
+    if (_obj != NULL) {
+        if (func_new != NULL) *_obj = func_new(_data);
+        else *_obj = NULL;
+        tree_insert_by_pos(ctx->tree, (uint64_t) *_obj, ++ctx->tree->count);
+    }
 
     cpd_ctx_unmarshal *_ctx = calloc(1, sizeof(cpd_ctx_unmarshal));
     if (_ctx == NULL) return CPD_FLAG_ERR_ALLOC;
+    _ctx->tree = ctx->tree;
 
     int32_t res = CPD_FLAG_SUCCESS;
     for (uint64_t pos = 0; pos < obj->_size;) {
