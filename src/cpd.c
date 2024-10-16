@@ -156,14 +156,18 @@ if (ctx->first == NULL) return -1; \
 const cpd_obj_u *obj = ctx->first; \
 ctx->first = ctx->first->next; \
 
+#define CDP_MARSHAL_OBJECT_INIT(type, size) \
+*obj = (cpd_obj_m){type, malloc(size), size}; \
+if (obj->_content == NULL)
+
+
 int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     CDP_MARSHAL_HEADER
 
     uint8_t _type;
     uint8_t _str[16] = {0};
     const uint64_t _size = cpd_basic_marshal(val, _str, &_type);
-    *obj = (cpd_obj_m){_type | cpd_type_int, malloc(_size), _size};
-    if (obj->_content == NULL)  return -1;
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_int, _size) return -1;
     ctx->size += _size + 1;
 
     memcpy(obj->_content, _str, _size);
@@ -176,8 +180,7 @@ int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t si
     uint8_t _type;
     const uint64_t _size = cpd_basic_marshal(size, _str, &_type);
 
-    *obj = (cpd_obj_m){_type | cpd_type_string, malloc(size + _size), size + _size};
-    if (obj->_content == NULL) return -1;
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_string, size + _size) return -1;
     ctx->size += size + _size + 1;
 
     memcpy(obj->_content, _str, _size);
@@ -198,8 +201,7 @@ int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ct
 
     _size = cpd_basic_marshal(_ctx->size, _str, &_type);
 
-    *obj = (cpd_obj_m){_type | cpd_type_compose, malloc(_ctx->size + _size), _ctx->size + _size};
-    if (obj->_content == NULL) {
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_compose, _ctx->size + _size) {
         res = -1;
         goto end;
     }
