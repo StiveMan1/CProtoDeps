@@ -24,17 +24,12 @@ typedef enum {
     cpd_type_compose = cpd_type_len | 0x04,
 } cpd_types;
 
-typedef struct {
+typedef struct tree_node_st {
     uint64_t obj;
     uint64_t pos;
-} tree_data_t;
-
-typedef struct tree_node_st {
-    tree_data_t data;
     struct tree_node_st *childs[2];
     char color;
 } tree_node_t;
-
 typedef struct {
     tree_node_t *root;
     uint64_t count;
@@ -48,7 +43,6 @@ typedef struct cpd_obj_m_st {
 
     struct cpd_obj_m_st *next;
 } cpd_obj_m;
-
 typedef struct cpd_obj_u_st {
     uint8_t _type;
 
@@ -58,25 +52,19 @@ typedef struct cpd_obj_u_st {
     struct cpd_obj_u_st *next;
 } cpd_obj_u;
 
-typedef struct {
+struct cpd_ctx_unmarshal_st {
     cpd_obj_u *first;
     cpd_obj_u *last;
 
     tree_t *tree;
-} cpd_ctx_unmarshal;
-
-typedef struct {
+};
+typedef struct cpd_ctx_marshal_st {
     cpd_obj_m *first;
     cpd_obj_m *last;
 
     uint64_t size;
     tree_t *tree;
 } cpd_ctx_marshal;
-
-typedef struct {
-    uint8_t _str[16];
-    uint64_t _size;
-} varint_t;
 
 
 typedef void *(cpd_obj_new)(void *);
@@ -153,7 +141,7 @@ else ctx->last->next = obj;
 
 #define CDP_MARSHAL_HEADER \
 if (ctx == NULL) return CPD_FLAG_ERR_NULLPTR; \
-CDP_CONTEXT_NEW(cpd_obj_m, ctx, obj) return SRPC_FLAG_ERR_ALLOC; \
+CDP_CONTEXT_NEW(cpd_obj_m, ctx, obj) return CPD_FLAG_ERR_ALLOC; \
 CDP_CONTEXT_APPEND(ctx, obj) \
 uint8_t _str[16] = {0}; \
 uint8_t _type; \
@@ -174,35 +162,35 @@ int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
     CDP_MARSHAL_HEADER
 
     _size = cpd_basic_marshal(val, _str, &_type);
-    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_int, _size) return SRPC_FLAG_ERR_ALLOC;
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_int, _size) return CPD_FLAG_ERR_ALLOC;
     ctx->size += _size + 1;
 
     memcpy(obj->_content, _str, _size);
-    return SRPC_FLAG_SUCCESS;
+    return CPD_FLAG_SUCCESS;
 }
 int32_t cpd_marshal_str(cpd_ctx_marshal *ctx, const char *str, const uint64_t size) {
     CDP_MARSHAL_HEADER
 
     _size = cpd_basic_marshal(size, _str, &_type);
-    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_string, size + _size) return SRPC_FLAG_ERR_ALLOC;
+    CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_string, size + _size) return CPD_FLAG_ERR_ALLOC;
     ctx->size += size + _size + 1;
 
     memcpy(obj->_content, _str, _size);
     memcpy(obj->_content + _size, str, size);
-    return SRPC_FLAG_SUCCESS;
+    return CPD_FLAG_SUCCESS;
 }
 int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ctx) {
     CDP_MARSHAL_HEADER
 
     cpd_ctx_marshal *_ctx = calloc(1, sizeof(cpd_ctx_marshal));
-    if (_ctx == NULL) return SRPC_FLAG_ERR_ALLOC;
+    if (_ctx == NULL) return CPD_FLAG_ERR_ALLOC;
 
     int32_t res = func(_obj, _ctx);
     if (res != 0) goto end;
 
     _size = cpd_basic_marshal(_ctx->size, _str, &_type);
     CDP_MARSHAL_OBJECT_INIT(_type | cpd_type_compose, _ctx->size + _size) {
-        res = SRPC_FLAG_ERR_ALLOC;
+        res = CPD_FLAG_ERR_ALLOC;
         goto end;
     }
     ctx->size += _ctx->size + _size;
@@ -227,35 +215,35 @@ int32_t cpd_marshal(void *_obj, const cpd_marshal_func func, cpd_ctx_marshal *ct
 
 int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
     CDP_UNMARSHAL_HEADER
-    if ((obj->_type & 0x0c) != cpd_type_int) return SRPC_FLAG_ERR_TYPE;
+    if ((obj->_type & 0x0c) != cpd_type_int) return CPD_FLAG_ERR_TYPE;
 
     *val = obj->_size;
 
-    return SRPC_FLAG_SUCCESS;
+    return CPD_FLAG_SUCCESS;
 }
 int32_t cpd_unmarshal_str(cpd_ctx_unmarshal *ctx, char *str, const uint64_t size, uint64_t *res_size) {
     CDP_UNMARSHAL_HEADER
 
-    if ((obj->_type & 0x0c) != cpd_type_string) return SRPC_FLAG_ERR_TYPE;
+    if ((obj->_type & 0x0c) != cpd_type_string) return CPD_FLAG_ERR_TYPE;
     if (obj->_content == NULL) return CPD_FLAG_ERR_NULLPTR;
 
     *res_size = size < obj->_size? size: obj->_size;
     memcpy(str, obj->_content, *res_size);
-    return SRPC_FLAG_SUCCESS;
+    return CPD_FLAG_SUCCESS;
 }
 int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, cpd_obj_new func_new, cpd_ctx_unmarshal *ctx) {
     CDP_UNMARSHAL_HEADER
 
-    if ((obj->_type & 0x0c) != cpd_type_compose) return SRPC_FLAG_ERR_TYPE;
+    if ((obj->_type & 0x0c) != cpd_type_compose) return CPD_FLAG_ERR_TYPE;
     if (obj->_content == NULL) return CPD_FLAG_ERR_NULLPTR;
 
     cpd_ctx_unmarshal *_ctx = calloc(1, sizeof(cpd_ctx_unmarshal));
-    if (_ctx == NULL) return SRPC_FLAG_ERR_ALLOC;
+    if (_ctx == NULL) return CPD_FLAG_ERR_ALLOC;
 
-    int32_t res = SRPC_FLAG_SUCCESS;
+    int32_t res = CPD_FLAG_SUCCESS;
     for (uint64_t pos = 0; pos < obj->_size;) {
         CDP_CONTEXT_NEW(cpd_obj_u, _ctx, ctx_obj) {
-            res = SRPC_FLAG_ERR_ALLOC;
+            res = CPD_FLAG_ERR_ALLOC;
             goto end;
         }
         CDP_CONTEXT_APPEND(_ctx, ctx_obj)
@@ -267,7 +255,7 @@ int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, c
             pos += ctx_obj->_size;
         }
         if (pos > obj->_size) {
-            res = CPD_SRPC_FLAG_ERR_EOF;
+            res = CPD_FLAG_ERR_EOF;
             goto end;
         }
     }
@@ -281,3 +269,39 @@ int32_t cpd_unmarshal(void **_obj, void *_data, const cpd_unmarshal_func func, c
     free(_ctx);
     return res;
 }
+
+#define CPD_CONSTRUCT(a, b) a##b
+#define CPD_MARSHAL_CONSTRUCT(type, name) \
+int32_t CPD_CONSTRUCT(cpd_marshal, name)(cpd_ctx_marshal *ctx, const type name) { \
+    return cpd_basic_data_marshal(ctx, (uint64_t) name); \
+}
+#define CPD_UNMARSHAL_CONSTRUCT(type, name) \
+int32_t CPD_CONSTRUCT(cpd_unmarshal, name)(cpd_ctx_unmarshal *ctx, type *name) { \
+    return cpd_basic_data_unmarshal(ctx, (uint64_t *) name); \
+}
+
+CPD_MARSHAL_CONSTRUCT(double, _double)
+CPD_MARSHAL_CONSTRUCT(float , _float )
+
+CPD_MARSHAL_CONSTRUCT(uint64_t, _uint64)
+CPD_MARSHAL_CONSTRUCT(uint32_t, _uint32)
+CPD_MARSHAL_CONSTRUCT(uint16_t, _uint16)
+CPD_MARSHAL_CONSTRUCT(uint8_t , _uint8 )
+
+CPD_MARSHAL_CONSTRUCT(int64_t, _int64)
+CPD_MARSHAL_CONSTRUCT(int32_t, _int32)
+CPD_MARSHAL_CONSTRUCT(int16_t, _int16)
+CPD_MARSHAL_CONSTRUCT(int8_t , _int8 )
+
+CPD_UNMARSHAL_CONSTRUCT(double, _double)
+CPD_UNMARSHAL_CONSTRUCT(float , _float )
+
+CPD_UNMARSHAL_CONSTRUCT(uint64_t, _uint64)
+CPD_UNMARSHAL_CONSTRUCT(uint32_t, _uint32)
+CPD_UNMARSHAL_CONSTRUCT(uint16_t, _uint16)
+CPD_UNMARSHAL_CONSTRUCT(uint8_t , _uint8 )
+
+CPD_UNMARSHAL_CONSTRUCT(int64_t, _int64)
+CPD_UNMARSHAL_CONSTRUCT(int32_t, _int32)
+CPD_UNMARSHAL_CONSTRUCT(int16_t, _int16)
+CPD_UNMARSHAL_CONSTRUCT(int8_t , _int8 )
