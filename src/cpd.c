@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "cpd.h"
 
 typedef enum {
@@ -136,4 +140,35 @@ uint64_t cpd_basic_unmarshal(const uint8_t *_str, const uint64_t _type, uint64_t
     }
     *val = _val * _neg;
     return _pos;
+}
+
+
+int32_t cpd_basic_data_marshal(cpd_ctx_marshal *ctx, const uint64_t val) {
+    if (ctx == NULL) return -1;
+    if (ctx->first == NULL) return -1;
+    cpd_obj_m *obj = ctx->first;
+    ctx->first = ctx->first->next;
+
+    uint8_t _type;
+    uint8_t _str[16] = {0};
+    const uint64_t _size = cpd_basic_marshal(val, _str, &_type);
+    *obj = (cpd_obj_m){_type | cpd_type_int, malloc(_size), _size};
+    if (obj->_content == NULL)  return -1;
+    ctx->size += _size + 1;
+
+    memcpy(obj->_content, _str, _size);
+    return 0;
+}
+
+
+int32_t cpd_basic_data_unmarshal(cpd_ctx_unmarshal *ctx, uint64_t *val) {
+    if (ctx == NULL) return -1;
+    if (ctx->first == NULL) return -1;
+    const cpd_obj_u *obj = ctx->first;
+    ctx->first = ctx->first->next;
+    if ((obj->_type & 0x0c) != cpd_type_int) return -1;
+
+    *val = obj->_size;
+
+    return 0;
 }
