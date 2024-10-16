@@ -34,7 +34,11 @@ int32_t unmarshal_test1(void *_, cpd_ctx_unmarshal *ctx) {
 
 int main(void) {
     cpd_ctx_marshal *mctx = cpd_marshal_new();
+    cpd_ctx_unmarshal *uctx = cpd_unmarshal_new();
     printf("%d", cpd_marshal(NULL, marshal_test1, mctx));
+
+    cpd_ctx_marshal_free(mctx);
+    cpd_ctx_unmarshal_free(uctx);
 
     // printf("%zu\n", mctx.size);
     // cpd_ctx_unmarshal *uctx = {(cpd_obj_u *)mctx.first, NULL, &tree_u};

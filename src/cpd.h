@@ -22,6 +22,9 @@ typedef int32_t(*cpd_unmarshal_func)(void *, cpd_ctx_unmarshal *);
 cpd_ctx_marshal *cpd_marshal_new();
 cpd_ctx_unmarshal *cpd_unmarshal_new();
 
+void cpd_ctx_marshal_free(cpd_ctx_marshal *ctx);
+void cpd_ctx_unmarshal_free(cpd_ctx_unmarshal *ctx);
+
 int32_t cpd_marshal_double(cpd_ctx_marshal *ctx, double _double);
 int32_t cpd_marshal_float (cpd_ctx_marshal *ctx, float  _float );
 

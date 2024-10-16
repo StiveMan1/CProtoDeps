@@ -69,14 +69,6 @@ typedef struct cpd_ctx_marshal_st {
     tree_t tree;                            // Pointer to the tree used during marshaling
 } cpd_ctx_marshal;
 
-// Creation of the contexts for CPD Lib
-cpd_ctx_marshal *cpd_marshal_new() {
-    return calloc(1, sizeof(cpd_ctx_marshal));
-}
-cpd_ctx_unmarshal *cpd_unmarshal_new() {
-    return calloc(1, sizeof(cpd_ctx_unmarshal));
-}
-
 uint64_t cpd_varint_marshal(uint64_t _val, uint8_t *_str) {
     uint64_t _size = 0;
     for (; _val > 0x7F; _val >>= 7) _str[_size++] = _val & 0x7F | 0x80;
@@ -249,6 +241,23 @@ void neurons_tree_free(tree_t *tree) {
     }
 
     tree->root = NULL;
+}
+
+// Creation of the contexts for CPD Lib
+cpd_ctx_marshal *cpd_marshal_new() {
+    return calloc(1, sizeof(cpd_ctx_marshal));
+}
+cpd_ctx_unmarshal *cpd_unmarshal_new() {
+    return calloc(1, sizeof(cpd_ctx_unmarshal));
+}
+
+void cpd_ctx_marshal_free(cpd_ctx_marshal *ctx) {
+    neurons_tree_free(&ctx->tree);
+    free(ctx);
+}
+void cpd_ctx_unmarshal_free(cpd_ctx_unmarshal *ctx) {
+    neurons_tree_free(&ctx->tree);
+    free(ctx);
 }
 
 #define CDP_CONTEXT_NEW(type, ctx, obj) \
